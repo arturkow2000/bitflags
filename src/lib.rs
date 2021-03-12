@@ -252,6 +252,9 @@
 
 #![no_std]
 #![doc(html_root_url = "https://docs.rs/bitflags/1.2.1")]
+#![cfg_attr(feature = "const_operator", allow(incomplete_features))]
+#![cfg_attr(feature = "const_operator", feature(allow_internal_unstable))]
+#![cfg_attr(feature = "const_operator", feature(const_trait_impl))]
 
 #[cfg(test)]
 #[macro_use]
@@ -470,6 +473,34 @@ macro_rules! __fn_bitflags {
     ) => {
         $(# $attr_args)*
         pub unsafe fn $($item)*
+    };
+}
+
+#[macro_export(local_inner_macros)]
+#[doc(hidden)]
+#[cfg(feature = "const_operator")]
+#[allow_internal_unstable(const_trait_impl)]
+macro_rules! __impl_trait_maybe_const {
+    (
+        $_trait:ty: $_type:ty,
+        $($_impl:tt)*
+    ) => {
+        impl const $_trait for $_type {
+            $($_impl)*
+        }
+    };
+}
+#[macro_export(local_inner_macros)]
+#[doc(hidden)]
+#[cfg(not(feature = "const_operator"))]
+macro_rules! __impl_trait_maybe_const {
+    (
+        $_trait:ty: $_type:ty,
+        $($_impl:tt)*
+    ) => {
+        impl $_trait for $_type {
+            $($_impl)*
+        }
     };
 }
 
@@ -713,7 +744,8 @@ macro_rules! __impl_bitflags {
             }
         }
 
-        impl $crate::_core::ops::BitOr for $BitFlags {
+        __impl_trait_maybe_const! {
+            $crate::_core::ops::BitOr: $BitFlags,
             type Output = $BitFlags;
 
             /// Returns the union of the two sets of flags.
@@ -732,7 +764,8 @@ macro_rules! __impl_bitflags {
             }
         }
 
-        impl $crate::_core::ops::BitXor for $BitFlags {
+        __impl_trait_maybe_const! {
+            $crate::_core::ops::BitXor: $BitFlags,
             type Output = $BitFlags;
 
             /// Returns the left flags, but with all the right flags toggled.
@@ -751,7 +784,8 @@ macro_rules! __impl_bitflags {
             }
         }
 
-        impl $crate::_core::ops::BitAnd for $BitFlags {
+        __impl_trait_maybe_const! {
+            $crate::_core::ops::BitAnd: $BitFlags,
             type Output = $BitFlags;
 
             /// Returns the intersection between the two sets of flags.
@@ -770,7 +804,8 @@ macro_rules! __impl_bitflags {
             }
         }
 
-        impl $crate::_core::ops::Sub for $BitFlags {
+        __impl_trait_maybe_const! {
+            $crate::_core::ops::Sub: $BitFlags,
             type Output = $BitFlags;
 
             /// Returns the set difference of the two sets of flags.
@@ -789,13 +824,14 @@ macro_rules! __impl_bitflags {
             }
         }
 
-        impl $crate::_core::ops::Not for $BitFlags {
+        __impl_trait_maybe_const! {
+            $crate::_core::ops::Not: $BitFlags,
             type Output = $BitFlags;
 
             /// Returns the complement of this set of flags.
             #[inline]
             fn not(self) -> $BitFlags {
-                $BitFlags { bits: !self.bits } & $BitFlags::all()
+                $BitFlags { bits: !self.bits & $BitFlags::all().bits() }
             }
         }
 
@@ -1028,9 +1064,18 @@ mod tests {
         assert_eq!(unsafe { Flags::from_bits_unchecked(0) }, Flags::empty());
         assert_eq!(unsafe { Flags::from_bits_unchecked(0b1) }, Flags::A);
         assert_eq!(unsafe { Flags::from_bits_unchecked(0b10) }, Flags::B);
-        assert_eq!(unsafe { Flags::from_bits_unchecked(0b11) }, (Flags::A | Flags::B));
-        assert_eq!(unsafe { Flags::from_bits_unchecked(0b1000) }, (extra | Flags::empty()));
-        assert_eq!(unsafe { Flags::from_bits_unchecked(0b1001) }, (extra | Flags::A));
+        assert_eq!(
+            unsafe { Flags::from_bits_unchecked(0b11) },
+            (Flags::A | Flags::B)
+        );
+        assert_eq!(
+            unsafe { Flags::from_bits_unchecked(0b1000) },
+            (extra | Flags::empty())
+        );
+        assert_eq!(
+            unsafe { Flags::from_bits_unchecked(0b1001) },
+            (extra | Flags::A)
+        );
     }
 
     #[test]
@@ -1177,7 +1222,6 @@ mod tests {
         assert_eq!(m1, e1);
     }
 
-
     #[cfg(bitflags_const_fn)]
     #[test]
     fn test_const_fn() {
@@ -1276,7 +1320,10 @@ mod tests {
         let extra = unsafe { Flags::from_bits_unchecked(0xb8) };
         assert_eq!(format!("{:?}", extra), "0xb8");
         assert_eq!(format!("{:?}", Flags::A | extra), "A | 0xb8");
-        assert_eq!(format!("{:?}", Flags::ABC | extra), "A | B | C | ABC | 0xb8");
+        assert_eq!(
+            format!("{:?}", Flags::ABC | extra),
+            "A | B | C | ABC | 0xb8"
+        );
     }
 
     #[test]

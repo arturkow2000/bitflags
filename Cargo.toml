@@ -34,6 +34,7 @@ travis-ci = { repository = "bitflags/bitflags" }
 default = []
 example_generated = []
 rustc-dep-of-std = ["core", "compiler_builtins"]
+const_operator = []
 
 [package.metadata.docs.rs]
 features = [ "example_generated" ]
